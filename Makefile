@@ -94,6 +94,27 @@ gocheck:
 golint:
 	golangci-lint run  ./...
 
+
+# checks for auxiliary files / test scripts
+
+# generate report output
+# packages: hadolint
+hadolint:
+	hadolint -v -V 2>&1
+	rpm -q hadolint
+	@for c in *.docker; do \
+		sha256sum $$c; \
+		grep -B1 -A1 "hadolint *ignore" $$c; \
+		hadolint $$c; \
+	done
+
+# packages: shellcheck
+shellcheck:
+	find . -name '*.sh' | xargs shellcheck
+
+check: gocheck golint hadolint shellcheck
+
+
 mod:
 	go mod tidy
 
@@ -106,5 +127,5 @@ clean:
 goclean: clean
 	go clean --modcache
 
-.PHONY: static msan race gocheck golint \
+.PHONY: static msan race gocheck golint hadolint shellcheck \
 	check mod clean goclean

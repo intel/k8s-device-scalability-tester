@@ -1,0 +1,64 @@
+# Test container with media tools for running real GPU workload:
+# $ docker build --rm -t k8s-device-scalability-tester-media:latest \
+#   -f scalability-tester-media.docker .
+
+# common variables
+ARG USER=65534
+ARG BUILD_DIR=/build
+
+ARG GOVERSION=1.19
+
+# *** build stage ***
+# if "k8s-device-scalability-tester" image is already built / in some registry,
+#  use that as builder stage instead of doing a build here
+FROM docker.io/library/golang:${GOVERSION} AS builder
+
+ARG BUILD_DIR
+# golang image sets both GOPATH & WORKDIR to /go/, but
+# "go mod tidy" complains if that's the case, so change it
+WORKDIR $BUILD_DIR
+
+COPY Makefile go.* ./
+COPY .git/ ./.git
+COPY cmd/ ./cmd
+
+RUN make mod  &&  make static
+
+
+# where to get latest BKC tools and libs
+FROM ubuntu:22.04
+
+# don't ask anything
+ARG DEBIAN_FRONTEND=noninteractive
+
+# certs for apt HTTPS repo access and gpg/wget for repo key addition
+RUN apt-get update  &&  apt-get --no-install-recommends install -y \
+    ca-certificates gpg wget \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Ubuntu "dash" linked to /bin/sh does not support "pipefail" option,
+# so hadolint/docker recommendation is heavy interactive shell
+SHELL [ "/bin/bash", "-o", "pipefail", "-c" ]
+
+# add Intel key + jammy/flex repo
+RUN wget -qO - https://repositories.intel.com/graphics/intel-graphics.key |\
+    gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg  && \
+    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy flex' |\
+    tee /etc/apt/sources.list.d/intel.gpu.jammy.list
+
+# Tools using oneVPL media API, oneVPL Intel backend and Intel VA-API media driver
+RUN apt-get update  &&  apt-get install --no-install-recommends -y \
+    libvpl-tools libmfxgen1 intel-media-va-driver-non-free \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+
+ARG BUILD_DIR
+
+# add scalability tester backend (static Go binary) + its license
+COPY --from=builder  ${BUILD_DIR}/tester-backend /
+COPY LICENSE /LICENSE.tester-backend
+
+ARG USER=nobody
+USER ${USER}
+
+CMD ["/tester-backend", "-help"]

@@ -1,0 +1,6 @@
+ignored:
+# do not require potentially old/isecure pinned base image version:
+- DL3006
+# use Docker "--no-cache" to get security updates, instead of needing
+# to constantly track & maintain pinned versions:
+- DL3008
