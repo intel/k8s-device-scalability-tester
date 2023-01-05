@@ -1,0 +1,5 @@
+GET /nodes?type=plain HTTP/1.1
+Host: 127.0.0.1:9996
+User-Agent: radamsa/v?
+Accept: */*
+
