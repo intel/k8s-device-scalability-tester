@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: scalability-tester-frontend
+  name: scalability-tester-frontend
+  namespace: monitoring
+spec:
+  ports:
+  - name: clients
+    port: 9997
+    targetPort: clients
+  - name: metrics
+    port: 9998
+    targetPort: metrics
+  - name: workers
+    port: 9999
+    targetPort: workers
+  selector:
+    app: scalability-tester-frontend

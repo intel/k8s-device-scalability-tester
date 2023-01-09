@@ -1,0 +1,55 @@
+# NOTE: this needs to be applied after: service/frontend-*.yaml files are applied
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scalability-tester-frontend
+  namespace: monitoring
+  labels:
+    app: scalability-tester-frontend
+spec:
+  selector:
+    matchLabels:
+      app: scalability-tester-frontend
+  template:
+    metadata:
+      labels:
+        app: scalability-tester-frontend
+    spec:
+      serviceAccountName: scalability-tester-frontend-sa
+      containers:
+      - name: scalability-tester-frontend
+        imagePullPolicy: Always
+        image: intel/k8s-device-scalability-tester:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: [ "ALL" ]
+        # Client service requests, Prometheus metrics, worker queues
+        ports:
+        - containerPort: 9997
+          name: clients
+        - containerPort: 9998
+          name: metrics
+        - containerPort: 9999
+          name: workers
+        # Options:
+        # -*addr: ports matching above
+        # -interval: stats logging (+reset) interval (0=disabled)
+        # -qmax: max queue size (0=unlimited)
+        # -verbose (no arg): log all messages
+        # Args:
+        # - accepted/available queue names
+        command: [
+          "/tester-frontend",
+          "-caddr", ":9997",
+          "-maddr", ":9998",
+          "-waddr", ":9999",
+          "-interval", "0",
+          "-qmax", "9999",
+          "sleep", "media", "bkc"
+        ]
