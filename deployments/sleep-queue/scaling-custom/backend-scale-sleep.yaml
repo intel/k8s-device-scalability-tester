@@ -1,0 +1,46 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: scalability-tester-backend-sleep
+  namespace: monitoring
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: scalability-tester-backend-sleep
+  minReplicas: 1
+  maxReplicas: 64
+  metrics:
+  - type: Object
+    object:
+      metric:
+        name: hpa_queue_wait_time
+        selector:
+          # match queue "name" label for the metric
+          matchLabels:
+            name: sleep
+      describedObject:
+        apiVersion: v1
+        # get metric for named object of given type (in same namespace)
+        kind: Service
+        name: scalability-tester-frontend
+      target:
+        type: Value
+        value: 1
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 10
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 5
+    scaleUp:
+      selectPolicy: Max
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 5
+      - type: Pods
+        value: 4
+        periodSeconds: 5
