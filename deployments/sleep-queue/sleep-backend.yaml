@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scalability-tester-backend-sleep
+  namespace: monitoring
+spec:
+  # replica count could be maintained by HPA
+  #replicas: 1
+  selector:
+    matchLabels:
+      app: scalability-tester-backend-sleep
+  template:
+    metadata:
+      labels:
+        app: scalability-tester-backend-sleep
+    spec:
+      containers:
+      - name: scalability-tester-backend-sleep
+        imagePullPolicy: Always
+        image: intel/k8s-device-scalability-tester:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: [ "ALL" ]
+        # to identify backend node/pod
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        # Backend options (with a value):
+        # -faddr: frontend service address:port
+        # -backoff: whether to backoff queue queries, instead of exiting
+        # -backoff-max: max backoff time in seconds
+        #  when queue is empty, arg is 1s wait multiplier, 0=exit
+        # -dir: real workload work dir
+        # -glob: first matching file replaces FILENAME in work item arguments
+        # -limit: request run-time limit in secs, 0=unlimited
+        # -name: name of frontend service queue for work items
+        # -node-env: environment variable providing node name
+        # -pod-env: environment variable providing pod name
+        # Backend boolean options (no value):
+        # -ignore: ignore extra workload args provided in client request
+        # -null-in: map workload input to /dev/null
+        # -null-out: map workload output to /dev/null
+        # -verbose: log all messages
+        # Workload + its args (after '--'):
+        # - use builtin sleep, with arg coming from client
+        command: [
+          "/tester-backend",
+          "-faddr", "scalability-tester-frontend.monitoring:9999",
+          "-backoff", "0.2",
+          "-backoff-max", "1.0",
+          "-limit", "12",
+          "-name", "sleep",
+          "-node-env", "NODE_NAME",
+          "-pod-env", "POD_NAME",
+          "--",
+          "sleep"
+        ]
+      # how long pod termination (e.g. on scale-down) can take before
+      # it's forced (= request failure), should be larger than backend
+      # request timeout "-limit" value (as long as that's reasonable)
+      terminationGracePeriodSeconds: 15
