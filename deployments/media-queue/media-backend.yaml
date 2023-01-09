@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scalability-tester-backend-media
+  namespace: monitoring
+spec:
+  # replica count could be maintained by HPA
+  #replicas: 1
+  selector:
+    matchLabels:
+      app: scalability-tester-backend-media
+  template:
+    metadata:
+      labels:
+        app: scalability-tester-backend-media
+    spec:
+      # restrict to specific Intel GPU node types
+      #nodeSelector:
+      #  gpu.intel.com/platform_DG2.present: "true"
+      volumes:
+      - name: scalability-tester-data
+        persistentVolumeClaim:
+          claimName: scalability-tester-data-claim
+      securityContext:
+        # Even when GPU resource is requested from & provided for a container
+        # by the GPU plugin, being able to write to devices requires root user.
+        #
+        # Other user/group can be used if one is running new enough container
+        # engine, and it is configured to set device user/group access based
+        # on the pod security settings. See:
+        # https://kubernetes.io/blog/2021/11/09/non-root-containers-and-devices/
+        runAsUser: 0
+      containers:
+      - name: scalability-tester-backend-media
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/millicores: 480
+            gpu.intel.com/memory.max: 560M
+        volumeMounts:
+        - name: scalability-tester-data
+          mountPath: /data
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: [ "ALL" ]
+        imagePullPolicy: Always
+        image: intel/k8s-device-scalability-tester-media:latest
+        # to identify backend node/pod
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        # Backend options (with a value):
+        # -faddr: frontend service address:port
+        # -backoff: whether to backoff queue queries, instead of exiting
+        # -backoff-max: max backoff time in seconds
+        #  when queue is empty, arg is 1s wait multiplier, 0=exit
+        # -dir: real workload work dir
+        # -glob: first matching file replaces FILENAME in work item arguments
+        # -limit: request run-time limit in secs, 0=unlimited
+        # -name: name of frontend service queue for work items
+        # -node-env: environment variable providing node name
+        # -pod-env: environment variable providing pod name
+        # Backend boolean options (no value):
+        # -ignore: ignore extra workload args provided in client request
+        # -null-in: map workload input to /dev/null
+        # -null-out: map workload output to /dev/null
+        # -verbose: log all messages
+        # Workload + its args (after '--'):
+        # - use given GPU, with async pipeline depth of 4
+        # - transcode HEVC->HEVC with medium quality
+        # - upscale FullHD to 4K and discard
+        # - for first 600 frames
+        command: [
+          "/tester-backend",
+          "-faddr", "scalability-tester-frontend.monitoring:9999",
+          "-backoff", "0.2",
+          "-backoff-max", "1.0",
+          "-dir", "/data",
+          "-glob", "/dev/dri/renderD*",
+          "-limit", "0",
+          "-name", "media",
+          "-node-env", "NODE_NAME",
+          "-pod-env", "POD_NAME",
+          "-null-in",
+          "-ignore",
+          "--",
+          "/usr/bin/sample_multi_transcode",
+          "-hw",
+          "-async", "4",
+          "-device", "FILENAME",
+          "-i::h265", "/data/GTAV_1920x1080_60_yuv420p.h265",
+          "-o::h265", "/dev/null",
+          "-u", "medium",
+          "-w", "3840",
+          "-h", "2160",
+          "-n", "600"
+        ]
+      # - transcode long AVC->HEVC with medium quality
+      # - downscale FullHD to 1/4 FullHD and discard
+      #    "-i::h264", "/data/SES.Astra.UHDTV.1920x1080_60.h264",
+      #    "-o::h265", "/dev/null",
+      #    "-u", "medium",
+      #    "-w", "960",
+      #    "-h", "540",
+      #    "-n", "480"
+
+      # how long pod termination (e.g. on scale-down) can take before
+      # it's forced (= request failure), should be larger than backend
+      # request timeout "-limit" value (as long as that's reasonable)
+      # to avoid failed requests on scale down
+      terminationGracePeriodSeconds: 30

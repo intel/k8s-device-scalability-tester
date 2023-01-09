@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scalability-tester-client-media
+  namespace: validation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scalability-tester-client-media
+  template:
+    metadata:
+      labels:
+        app: scalability-tester-client-media
+    spec:
+      containers:
+      - name: scalability-tester-client-media
+        imagePullPolicy: Always
+        image: intel/k8s-device-scalability-tester:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsUser: 65534
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: [ "ALL" ]
+        # Client options:
+        # -caddr: client HTTP control UI [address]:port
+        # -faddr: frontend service address:port
+        # -limit: request run-time limit in secs, 0=default
+        # -name: name of service queue for the requests
+        # -req-now: how many queries in parallel at startup
+        # -req-max: how many parallel queries are supported at max
+        # -verbose (no arg): log all messages
+        command: [
+          "/tester-client",
+          "-caddr", ":9996",
+          "-faddr", "scalability-tester-frontend.monitoring:9997",
+          "-limit", "0",
+          "-req-now", "2",
+          "-req-max", "16",
+          "-name", "media"
+        ]
+        ports:
+        - containerPort: 9996
+          name: control
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: scalability-tester-client-media
+  name: scalability-tester-client-media
+  namespace: validation
+spec:
+  ports:
+  - name: control
+    port: 9996
+    targetPort: control
+  selector:
+    app: scalability-tester-client-media

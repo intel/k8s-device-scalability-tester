@@ -1,0 +1,38 @@
+# Recreate:
+#  kubectl delete -n monitoring pvc/scalability-tester-data-claim
+#  kubectl delete pv/scalability-tester-data-pv
+#  kubectl apply -f data-volume.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: scalability-tester-data-pv
+spec:
+  capacity:
+    storage: 1G
+  volumeMode: Filesystem
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: scalability-tester-data
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - hard
+  nfs:
+    # video file storage
+    path: /volume/media/videos
+    server: 192.168.0.1
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scalability-tester-data-claim
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadOnlyMany
+  volumeMode: Filesystem
+  resources:
+    # total for all mounted claims is actually checked,
+    # although read-only claims cannot write anything!
+    requests:
+      storage: 1M
+  storageClassName: scalability-tester-data
