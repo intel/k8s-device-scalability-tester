@@ -317,15 +317,20 @@ func statsOutput(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 
-	fmt.Fprintln(w, "<h1>Scalability tester client</h1>")
-	fmt.Fprintln(w, "\n<h2>Request changes</h2>")
-	fmt.Fprintln(w, "<form action=/parallel method=get><label>Requests in parallel: <input name=value></label><button>Change</button></form>")
-	fmt.Fprintln(w, "<form action=/reset method=get><button>Reset stat metrics</button></form>")
-
-	fmt.Fprintln(w, "\n<h2>Request statistics</h2>")
-	fmt.Fprintln(w, "<p><a href=/pods>Per-node histograms of used backend Pods</a> (for debugging)")
-	fmt.Fprintln(w, "<p><a href=/nodes>Per-node reply histograms</a>")
-	fmt.Fprintln(w, "<form action=/stats method=get><button>Refresh overall stats</button></form>")
+	fmt.Fprint(w,
+		"<h1>Scalability tester client</h1>\n",
+		"\n",
+		"<h2>Request changes</h2>\n",
+		"<form action=\"parallel\" method=\"get\"><label>Requests in parallel: ",
+		"<input name=\"value\"></label><button>Change</button>",
+		"</form>\n",
+		"<form action=\"reset\" method=\"get\"><button>Reset stat metrics</button></form>\n",
+		"\n",
+		"<h2>Request statistics</h2>\n",
+		"<p><a href=\"pods\">Per-node histograms of used backend Pods</a> (for debugging)\n",
+		"<p><a href=\"nodes\">Per-node reply histograms</a>\n",
+		"<form action=\"stats\" method=\"get\"><button>Refresh overall stats</button></form>\n",
+		"\n")
 
 	fmt.Fprintln(w, "<pre>")
 	printStats(w)
@@ -352,7 +357,7 @@ func returnResult(w io.Writer, r *http.Request, result, info string) {
 			info = ", " + info
 		}
 
-		fmt.Fprintf(w, "<p>%s%s. <a href=\"/stats\">back to stats</a>.</p>\n", result, info)
+		fmt.Fprintf(w, "<p>%s%s. <a href=\"stats\">back to stats</a>.</p>\n", result, info)
 	}
 }
 
