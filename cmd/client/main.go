@@ -297,7 +297,7 @@ func printStats(w io.Writer) {
 		stats.pending, stats.reply.failure, stats.reply.success, secs)
 
 	if stats.reply.success == 0 {
-		fmt.Fprintf(w, "\nHTTP queries: %d completed, %d rejected in total\n",
+		fmt.Fprintf(w, "\nHTTP queries: %d completed, %d rejected in total.\n",
 			stats.completed, stats.rejected)
 		return
 	}
@@ -310,7 +310,7 @@ func printStats(w io.Writer) {
 	printMaxAvgMin(w, count, stats.wait, "- %.1f / %.1f / %.1f - queue wait time\n")
 	printMaxAvgMin(w, count, stats.comm, "- %.3f / %.3f / %.3f - communication overhead\n")
 
-	fmt.Fprintf(w, "\nHTTP queries: %d completed, %d rejected in total\n",
+	fmt.Fprintf(w, "\nHTTP queries: %d completed, %d rejected in total.\n",
 		stats.completed, stats.rejected)
 }
 
@@ -357,10 +357,10 @@ func returnResult(w io.Writer, r *http.Request, result, info string) {
 
 	default: // html
 		if info != "" {
-			info = ", " + info
+			result = result + " " + info
 		}
 
-		fmt.Fprintf(w, "<p>%s%s. <a href=\"stats\">back to stats</a>.</p>\n", result, info)
+		fmt.Fprintf(w, "<p>%s. <a href=\"stats\">Back to stats</a>.</p>\n", result)
 	}
 }
 
