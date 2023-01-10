@@ -90,6 +90,7 @@ type statsT struct {
 	// HTTP endpoint statistics, never reseted after startup
 	completed uint64
 	rejected  uint64
+	parallel  int
 	// locking for those
 	mutex sync.Mutex
 }
@@ -289,6 +290,8 @@ func printStats(w io.Writer) {
 	stats.mutex.Lock()
 	defer stats.mutex.Unlock()
 
+	fmt.Fprintf(w, "\nSending %d requests in parallel.\n", stats.parallel)
+
 	secs := time.Since(stats.start).Seconds()
 	fmt.Fprintf(w, "\n%d pending, %d failed and %d successful requests in %.1f seconds.\n",
 		stats.pending, stats.reply.failure, stats.reply.success, secs)
@@ -419,8 +422,16 @@ func parallelization(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
+	// change request parallelization
 	parallel <- int(value)
-	returnResult(w, r, fmt.Sprintf("%d", <-parallel), "requests in parallel")
+	count := <-parallel
+
+	// store info of that
+	stats.mutex.Lock()
+	stats.parallel = count
+	stats.mutex.Unlock()
+
+	returnResult(w, r, fmt.Sprintf("%d", count), "requests in parallel")
 
 	return true
 }
@@ -750,6 +761,7 @@ func main() {
 	// create stats before there are any threads
 	stats.node = make(map[string]*nodeStatT)
 	stats.start = time.Now()
+	stats.parallel = reqnow
 
 	// HTTP handling
 	http.HandleFunc("/", myHandler)
