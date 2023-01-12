@@ -28,8 +28,9 @@ Use-cases:
 
 See:
 * [Design document](docs/README.md)
+* [Scalability testing with example workloads](deployments/README.md)
 
-Links:
+Related projects:
 * [Intel device plugins for Kubernetes](https://github.com/intel/intel-device-plugins-for-kubernetes/)
 * [Simulated device metrics](https://github.com/intel/fakedev-exporter/)
 
