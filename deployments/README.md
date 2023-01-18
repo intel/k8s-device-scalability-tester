@@ -12,14 +12,15 @@ Contents:
   * [Build containers](#build-containers)
   * [Configure deployments](#configure-deployments)
 * [Device scalability testing setup](#device-scalability-testing-setup)
-  * [Configure test cluster](configure-test-cluster)
-  * [Configure device deployments](configure-device-deployments)
+  * [Configure test cluster](#configure-test-cluster)
+  * [Configure device deployments](#configure-device-deployments)
 * [Scalability validation](#scalability-validation)
   * [What validation does](#what-validation-does)
   * [Validation setup](#validation-setup)
   * [Running the validation](#running-the-validation)
-  * [Advanced validation](#advanced-validation)
-* [Scaling alternatives](#scaling-alternatives)
+  * [Using multiple queues in parallel](#using-multiple-queues-in-parallel)
+  * [Cascade scaling and parallel encoding](#cascade-scaling-and-parallel-encoding)
+* [Kubernetes scaling strategies](#kubernetes-scaling-strategies)
   * [Manual scaling](#manual-scaling)
   * [Scaling with HPA](#scaling-with-hpa)
   * [Scaling with CronJobs](#scaling-with-cronjobs)
@@ -208,13 +209,13 @@ After volume is there, add to it few media files which transcoding
 scalability you would like to test in k8s with the media backend.
 
 Note that included oneVPL tool does not support media containers, so
-test files should be just the (av1, h264, h265, mpeg2, mvc, vc1 or
-vp9) video content. FFmpeg can extract video content from [media
-containers](https://en.wikipedia.org/wiki/Comparison_of_video_container_formats).
-If e.g. `ffprobe` tells file to use H.264 encoding, you can use:
-```
-$ ffmpeg -i video.mp4 -c:a copy video.h264
-```
+test files should be just the (av1, h264, h265, mpeg2, vp9...) video
+content. FFmpeg can extract video content from
+[media containers](https://en.wikipedia.org/wiki/Comparison_of_video_container_formats).
+
+(If e.g. `ffprobe` tells video track in `video.mp4` file to be in
+H.264 encoding, `ffmpeg -i video.mp4 -an -c:v copy video.h264`
+extracts the video content as-is.)
 
 While it is out of scope for this project, scalability testing without
 monitoring would be a poor excercise. Standard Prometheus and Grafana
@@ -404,32 +405,49 @@ been verified and backend spec resource requests have been optimized
 for the HW on the matching nodes.)
 
 
-Advanced validation
--------------------
+Using multiple queues in parallel
+---------------------------------
 
-Test framework support having multiple test queues in use at the same
-time.
+Test framework supports multiple test queues being used at the same
+time, so one can try device workloads with differing resource requests
+being deployed and running in parallel.
 
-Make copies of the media media-queue deployment files and change their
-backend transcode parameters to something taking different amount of
-resources and lasting longer or shorter time, than the original one.
+To test this, make copies of the media media-queue deployment files
+and change their backend transcode parameters to something taking
+different amount of resources and lasting longer or shorter time, than
+the original one.
 
-Then rename their queues from "media" to something better describing
-what kind of operation the given backend does.  For example
+Then rename their queues from "media" to something that better describes
+what kind of operation the given backend instances do.  For example
 "8bit-FullHD-HEVC-to-AVC-600-frames" and "10bit-4K-AV1-to-FullHD-HEVC".
 
-Finally add those queue names to frontend deployment arguments, and
-apply everything everything.
+After updating queue names in backend and client pod specs, add those
+queue names also to frontend deployment arguments, and apply updated
+frontend, backends and clients to cluster.
 
-After this, you can run multiple validations for different queues in
-parallel.  Just make sure you have enough GPUs available to run them
-all together.
+Just make sure you have enough GPU capacity available so that
+scalability test script can scale all backends up to replica counts
+you requested.
 
 
-Scaling alternatives
-====================
+Cascade scaling and parallel encoding
+-------------------------------------
 
-There are several alternatives for scaling backend instances.
+Intel OneVPL trascoding tool in the media backend supports also more
+advanced transcoding options, such as "cascade scaling" (transcoding
+video to multiple different formats in one go), and "parallel
+encoding" (splitting encoding part of transcoding to multiple GPUs).
+
+OneVPL project provides tooling to investigate in which situations
+those improve performance.
+
+For details, see: https://github.com/oneapi-src/oneVPL/tree/master/doc/
+
+
+Kubernetes scaling strategies
+=============================
+
+There are several alternatives for scaling backend pod instances.
 
 Note: When backend runs as HPA controlled deployment, its `-backoff`
 option should be used to avoid k8s reporting "crash" restarts.  If
