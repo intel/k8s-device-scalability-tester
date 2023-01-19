@@ -141,43 +141,14 @@ $ docker push $REGISTRY_URL/k8s-device-scalability-tester-media:latest
 Configure deployments
 ---------------------
 
-Instructions below assume being done from the deployments dir:
-```
-$ cd deployments/
-```
+Change deployments to use images from correct registry, and run in the
+cluster namespaces you specify.
 
-In case you want to change in which namespaces test deployments run,
-make sure to start from unmodified Git state:
+For example, if Prometheus runs `monitoring` namespace, and other
+tester deployments (which Prometheus does not need to query) should
+run in `validation` namespace, use:
 ```
-$ git checkout .
-```
-
-Point deployment files to correct image registry / project for the images:
-```
-$ sed -i "s%image:.*/%image: $REGISTRY_URL/%" $(git ls-files '*.yaml')
-```
-
-Check that resulting image URLs are OK:
-```
-$ git grep image: '*.yaml'
-```
-
-If test cluster has Prometheus, but it is running in another namespace
-than `monitoring`, change frontend + backend deployments and HPA rules
-to use Prometheus namespace, so that its metrics access works:
-```
-sed -i 's/monitoring/<namespace>/' $(git ls-files '*.yaml')
-```
-
-If you want rest of deployments to run in some other namespace than
-`validation`, change that too:
-```
-sed -i 's/validation/<namespace>/' $(git ls-files '*.yaml')
-```
-
-Check that there are no other namespaces used:
-```
-$ git grep -h 'namespace: ' '*.yaml' | sed 's/^[^:]*:/-/' | sort -u
+./config-deployment.sh $REGISTRY_URL monitoring validation
 ```
 
 
