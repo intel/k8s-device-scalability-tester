@@ -174,7 +174,7 @@ with test data.
 An example data volume is provided with the media backend for mounting
 video files from an NFS server. Because different clusters offer
 different types of volumes, you may need to use something else though.
-See: https://kubernetes.io/docs/concepts/storage/volumes/
+See [Kubernetes volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
 
 After volume is there, add to it few media files which transcoding
 scalability you would like to test in k8s with the media backend.
@@ -210,11 +210,10 @@ particular cluster setup, and HW available there:
     test backends and test files grows, separate volume makes managing
     sharing and updating them easier
 
-* If test cluster has nodes with different GPU capabilities, label
-  suitable set of nodes, or use [labels provided by GPU plugin]
-  (https://github.com/intel/intel-device-plugins-for-kubernetes/tree/main/cmd/gpu_nfdhook#introduction)
-  or [Node Feature Discovery rules]
-  (https://kubernetes-sigs.github.io/node-feature-discovery/stable/usage/features.html),
+* If test cluster has nodes with different GPU capabilities, label suitable set of nodes, or use
+  [labels provided by GPU plugin](https://github.com/intel/intel-device-plugins-for-kubernetes/tree/main/cmd/gpu_nfdhook#introduction)
+  or
+  [Node Feature Discovery rules](https://kubernetes-sigs.github.io/node-feature-discovery/stable/usage/features.html),
   and select them with backend `nodeSelector`
 
 * Update workload arguments to match to your video file name, and set
