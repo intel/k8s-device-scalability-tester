@@ -307,40 +307,25 @@ How the script works:
 Validation setup
 ----------------
 
-Before running the validation, you need to deploy everything, in the
-given order.
+Before running the validation, you need to deploy everything to the
+cluster, in the correct order.  To do that, copy `deployments/`
+directory content along with the `deployments-apply.sh`, to a host
+with `kubectl` having access to you cluster API server.
 
-Create namespaces:
+When run, script removes pre-existing scalability tester deployment
+from the cluster, and starts it again with only the specified test
+queues. Following would deploy scalability tester with both "sleep"
+and "media" test queues:
 ```
-$ kubectl apply -f namespace/
-```
-
-Create frontend service:
-```
-$ kubectl apply -f frontend/service/
-```
-
-Deploy it:
-```
-$ kubectl apply -f frontend/frontend.yaml
+$ deployments-apply.sh sleep media
 ```
 
-Deploy "sleep" queue backend, client and its service + ingress:
+If you just want to delete the whole scalability tester deployment, do
+not specify any queue names. Add `-v` option if you want also data
+volume(s) for the test queue(s) to be deleted:
 ```
-$ kubectl apply -f sleep-queue/
+$ deployments-apply.sh -v
 ```
-
-Create data volume for "media" queue workloads (if not already created):
-```
-$ kubectl apply -f media-queue/volume/
-```
-
-Deploy "media" (transcode) queue backend, client and its service + ingress:
-```
-kubectl apply -f media-queue/
-```
-
-(If `apply` fails, try `delete` first.)
 
 
 Running the validation
