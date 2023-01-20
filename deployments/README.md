@@ -14,6 +14,7 @@ Contents:
 * [Device scalability testing setup](#device-scalability-testing-setup)
   * [Configure test cluster](#configure-test-cluster)
   * [Configure device deployments](#configure-device-deployments)
+  * [GPU resource usage measuring](#gpu-resource-usage-measuring)
 * [Scalability validation](#scalability-validation)
   * [What validation does](#what-validation-does)
   * [Validation setup](#validation-setup)
@@ -166,7 +167,8 @@ Configure test cluster
 Sharing Intel GPUs based on
 [fractional pod allocation requests](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md#install-to-nodes-with-intel-gpus-with-fractional-resources)
 requires, in addition to GPU plugin, cluster to be running with
-[GPU Aware Scheduling](https://github.com/intel/platform-aware-scheduling/tree/master/gpu-aware-scheduling).
+[GPU Aware Scheduling](https://github.com/intel/platform-aware-scheduling/tree/master/gpu-aware-scheduling)
+(GAS).
 
 And device workloads like the media one, need a k8s persistent volume
 with test data.
@@ -221,14 +223,25 @@ particular cluster setup, and HW available there:
   according to what you want to test, and how long each instance
   should run
 
-* Check resource usage of the workload on the types of nodes where you
-  intend to run the workloads, and update workload arguments or
-  [backend deployment](media-queue/media-backend.yaml) k8s resource
-  requests accordingly, to optimize workload scalability and its
-  device utilization for your cluster HW, and what you want to test
+* Measure resource usage of the workload on the types of nodes where
+  you intend to run the workload instances, and either update workload
+  arguments, or [backend deployment](media-queue/media-backend.yaml)
+  k8s device resource requests accordingly, to optimize workload
+  scalability and its device utilization for your cluster HW, and what
+  you want to test
 
-  * For Intel GPU workloads, the relevant resources are
-    `gpu.intel.com/millicores` and `gpu.intel.com/memory.max`
+  * For Intel GPU workloads, most relevant resource is
+    `gpu.intel.com/memory.max`, followed by `gpu.intel.com/millicores`.
+
+    Telling how much GPU memory workload uses at maximum, avoids GPU
+    memory being oversubscribed, which could result in significant
+    slowdown (due to paging), and potential workload termination.
+
+    Millicores value can be used to limit device sharing further, if
+    given workload would need larger share of the GPU time to complete
+    in acceptable time frame. Suitable value depends on capacity of
+    the GPU on which the workload is run on, not just the workload
+    itself (like memory usage does)
 
 * Check how long test workload runs with given transcoding options. 
   To keep scaling validation rounds reasonably short, it's better to
@@ -239,9 +252,15 @@ particular cluster setup, and HW available there:
   lenght, to avoid deployment scale-in causing request interruptions
   i.e. failures
 
-If you're not using e.g. XPU Manager + Prometheus + Grafana UI to
-check GPU resource usage of the deployed workloads, you can do it also
-manually from the command line:
+
+GPU resource usage measuring
+----------------------------
+
+If cluster already runs XPU Manager + Prometheus + Grafana UI, it is
+easiest to check GPU resource usage of the deployed workloads from
+a Grafana GPU metrics dashboard.
+
+But you can do it also manually from the command line:
 
   * Run the workload directly (from a dir with test content) *with same
     arguments that the deployment uses*, with something like this:
