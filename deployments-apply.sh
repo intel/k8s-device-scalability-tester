@@ -57,6 +57,12 @@ for queue in *-queue; do
 	name=${queue%-queue}
 	echo "Deleting '$name' queue deployment..."
 	$delete -f "$queue"
+done
+
+# need to be done after all queues have been deleted,
+# in case queues use same data volume
+for queue in *-queue; do
+	name=${queue%-queue}
 	if [ $del_vols = true ] && [ -d "$queue/volume" ]; then
 		echo "Deleting '$name' data volume..."
 		$delete -f "$queue/volume/"
@@ -88,8 +94,9 @@ echo "Starting specified queues..."
 for name in "$@"; do
 	queue="$name-queue"
 	if [ -d "$queue/volume" ]; then
+		# as these may be shared, use apply, not create
 		echo "Creating '$name' data volume..."
-		kubectl create -f "$queue/volume/"
+		kubectl apply -f "$queue/volume/"
 	fi
 	echo "Create '$name' queue deployment..."
 	kubectl create -f "$queue"
