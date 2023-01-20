@@ -148,7 +148,7 @@ For example, if Prometheus runs `monitoring` namespace, and other
 tester deployments (which Prometheus does not need to query) should
 run in `validation` namespace, use:
 ```
-./config-deployment.sh $REGISTRY_URL monitoring validation
+./deployments-config.sh $REGISTRY_URL monitoring validation
 ```
 
 
