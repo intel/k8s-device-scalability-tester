@@ -113,7 +113,7 @@ Basic deployment setup
 Build containers
 ----------------
 
-Instructions below assume being done from the project root:
+Instructions below assume being done from the project root directory:
 ```
 $ cd <project root>
 ```
@@ -251,6 +251,11 @@ particular cluster setup, and HW available there:
   set deployment spec `terminationGracePeriodSeconds` to measures run
   lenght, to avoid deployment scale-in causing request interruptions
   i.e. failures
+
+* "media" backend deployment spec uses user ID 0 (root), to make sure it can
+  access k8s provided device file regardless of what is installed on the GPU node host.
+  [Non-root device containers](https://kubernetes.io/blog/2021/11/09/non-root-containers-and-devices/)
+  tells what is needed from cluster to run device containers under other user IDs
 
 
 GPU resource usage measuring
