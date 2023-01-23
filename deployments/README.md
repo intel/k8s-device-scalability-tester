@@ -14,7 +14,7 @@ Contents:
 * [Device scalability testing setup](#device-scalability-testing-setup)
   * [Configure test cluster](#configure-test-cluster)
   * [Configure device deployments](#configure-device-deployments)
-  * [GPU resource usage measuring](#gpu-resource-usage-measuring)
+  * [Measure GPU resource usage](#measure-gpu-resource-usage)
 * [Scalability validation](#scalability-validation)
   * [What validation does](#what-validation-does)
   * [Validation setup](#validation-setup)
@@ -232,6 +232,7 @@ particular cluster setup, and HW available there:
 
   * For Intel GPU workloads, most relevant resource is
     `gpu.intel.com/memory.max`, followed by `gpu.intel.com/millicores`.
+    For their values, see [Measure GPU resource usage](#measure-gpu-resource-usage).
 
     Telling how much GPU memory workload uses at maximum, avoids GPU
     memory being oversubscribed, which could result in significant
@@ -258,8 +259,8 @@ particular cluster setup, and HW available there:
   tells what is needed from cluster to run device containers under other user IDs
 
 
-GPU resource usage measuring
-----------------------------
+Measure GPU resource usage
+--------------------------
 
 If cluster already runs XPU Manager + Prometheus + Grafana UI, it is
 easiest to check GPU resource usage of the deployed workloads from
@@ -366,8 +367,14 @@ Throughput: 3.492229 -> 6.841997 = 1.95 increase on reqs-per-sec
 ...
 *** PASS ***
 ```
-(Assumes default names for namespaces, and "sleep" backend taking 2s
-for each request.)
+Above assumes default names for the namespaces, and "sleep" backend
+being configured to take 2s for each request.  For more accuracy, a
+significantly larger runtime value than what the backend actually
+uses, should be specified.
+
+(To reduced testing time, script runs each test round only 4x longer
+than the specified request time, which does not provide very accurate
+results.)
 
 Validate media backend scalability to have at least 1.4x throughput
 increase for each backend replica count doubling, for workload running
@@ -388,25 +395,41 @@ Using multiple queues in parallel
 ---------------------------------
 
 Test framework supports multiple test queues being used at the same
-time, so one can try device workloads with differing resource requests
-being deployed and running in parallel.
+time, so one can try device workloads with different resource usages
+and running times, being deployed and running in parallel.
 
-To test this, make copies of the media media-queue deployment files
-and change their backend transcode parameters to something taking
-different amount of resources and lasting longer or shorter time, than
-the original one.
+To test this, make copy of the `media-queue` deployment. Give the new
+queue a name that describe its intended load well (better than
+"media"). For example "10bit-4K-AV1-to-FullHD-HEVC".
 
-Then rename their queues from "media" to something that better describes
-what kind of operation the given backend instances do.  For example
-"8bit-FullHD-HEVC-to-AVC-600-frames" and "10bit-4K-AV1-to-FullHD-HEVC".
+Because `deployments-apply.sh` and `validate-scaling.sh` scripts
+expect deployments directory, spec files, and k8s object names to
+correspond to the queue name, use the provided script to create
+new deployment files from a suitable existing one, like this:
+```
+$ ./deployments-backend.sh media 10bit-4K-AV1-to-FullHD-HEVC
+```
 
-After updating queue names in backend and client pod specs, add those
-queue names also to frontend deployment arguments, and apply updated
-frontend, backends and clients to cluster.
+Change the new (`<name>-queue/<name>-backend.yaml`) backend spec file:
 
-Just make sure you have enough GPU capacity available so that
-scalability test script can scale all backends up to replica counts
-you requested.
+* Transcode parameters to something matching the queue name
+
+* Resources limits to match how much resources backend takes with those parameters
+
+* Pod grace period to match how long backend instance runs
+
+(See [Configure device deployments](#configure-device-deployments) for
+more information.)
+
+And add the new queue name(s) also to frontend deployment arguments
+(in `frontend/frontend.yaml`), so that it accepts the new queue client
+and backend connections.
+
+Finally, apply the new configuration to the cluster with `deployments-apply.sh`.
+
+For validation still to pass when all the queues are being tested /
+running at the same time, make also sure to have enough GPU capacity
+to scale backends for all queues up to desired replica counts.
 
 
 Cascade scaling and parallel encoding
