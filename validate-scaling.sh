@@ -126,6 +126,56 @@ set_parallel ()
 	fi
 }
 
+# wait upto given timeout until specified number of pods with given prefix are in given state
+# in given namespace, and none of those pods are in any other state
+wait_pod_state ()
+{
+	SECS=$1
+	COUNT=$2
+	PREFIX=$3
+	SPACE=$4
+	STATE=$5
+
+	echo "Waiting ${SECS}s for $COUNT $SPACE/${PREFIX}* deployment(s) to be in '$STATE' state..."
+
+	SLEEP=2
+	while [ "$SECS" -gt 0 ]; do
+		# start with sleep to make sure terminated pods are not anymore in running state
+		SECS=$((SECS-SLEEP))
+		sleep $SLEEP
+
+		# show current deployment status, with node names
+		kubectl -n "$SPACE" get pods -o wide | grep -F "^$PREFIX" || true
+
+		# requested number of deployments not yet in given state?
+		LINES=$(kubectl -n "$SPACE" get pods | grep -c "^${PREFIX}.* $STATE " || true)
+		echo "= $LINES/$COUNT pods (${SECS}s remaining)"
+		if [ "$LINES" -ne "$COUNT" ]; then
+			continue
+		fi
+
+		# none in any other state?
+		LINES=$(kubectl -n "$SPACE" get pods | grep -F "^$PREFIX" | grep -vcF " $STATE " || true)
+		if [ "$LINES" -eq 0 ]; then
+			# => wait done
+			return
+		break
+	fi
+	done
+
+	echo "ERROR: deployment wait timed out"
+
+	# on timeout, show log for first erroring pod
+	CRASHER=$(kubectl -n "$SPACE" get pods | awk "/^${PREFIX}.* (Crash|Error)/"'{print $1; exit}')
+	if [ "$CRASHER" != "" ]; then
+		echo $SEPARATOR
+		echo "kubectl -n $SPACE logs $CRASHER"
+		kubectl -n "$SPACE" logs "$CRASHER"
+		echo $SEPARATOR
+	fi
+	exit 1
+}
+
 scale_backends_up ()
 {
 	COUNT=$1
@@ -136,49 +186,20 @@ scale_backends_up ()
 		$cmd
 	fi
 
-	STATE="Running"
 	SECS=$((COUNT*DEP_SECS))
-	echo "Waiting ${SECS}s for all $COUNT $DEPLOYMENT deployments to reach '$STATE' state..."
-
-	SLEEP=2
-	while [ $SECS -gt 0 ]; do
-		# start with sleep to make sure terminated pods are not anymore in running state
-		SECS=$((SECS-SLEEP))
-		sleep $SLEEP
-
-		# show current deployment status, with node names
-		kubectl -n "$DEP_SPACE" get pods -o wide | grep "^${DEPLOYMENT}-"
-
-		# return if enough are running
-		LINES=$(kubectl -n "$DEP_SPACE" get pods | grep -c "^${DEPLOYMENT}-.* $STATE " || true)
-		echo "= $LINES/$COUNT pods (${SECS}s remaining)"
-		if [ "$LINES" -ge "$COUNT" ]; then
-			return
-		fi
-	done
-	echo "ERROR: deployment wait timed out"
-
-	# on timeout, show log for first erroring pod
-	CRASHER=$(kubectl -n "$DEP_SPACE" get pods | awk '/(Crash|Error)/{print $1; exit}')
-	if [ "$CRASHER" != "" ]; then
-		echo $SEPARATOR
-		echo "kubectl -n $DEP_SPACE logs $CRASHER"
-		kubectl -n "$DEP_SPACE" logs "$CRASHER"
-		echo $SEPARATOR
-	fi
-	exit 1
+	wait_pod_state "$SECS" "$COUNT" "${DEPLOYMENT}-" "$DEP_SPACE" "Running"
 }
 
 scale_backends_down ()
 {
-	echo "Scaling backend deployments down to $1..."
-	cmd="kubectl scale -n $DEP_SPACE deployment/$DEPLOYMENT --replicas=$1"
-	echo "$cmd"
+	COUNT=$1
+	cmd="kubectl scale -n $DEP_SPACE deployment/$DEPLOYMENT --replicas=$COUNT"
 	if [ "$DEP_SPACE" != "$TESTHOST" ]; then
+		echo "Scaling backend deployments down to $COUNT..."
+		echo "$cmd"
 		$cmd
 	fi
-	echo "Waiting ${DEP_SECS}s for that..."
-	sleep "$DEP_SECS"
+	wait_pod_state "$DEP_SECS" "$COUNT" "${DEPLOYMENT}-" "$DEP_SPACE" "Running"
 }
 
 
@@ -282,8 +303,9 @@ echo "$CURL \"$URL_NODES\""
 $CURL "$URL_NODES"
 echo $SEPARATOR
 
-# scale requests down
-set_parallel 1
+# disable load & extra log generation
+echo "Disabling client requests..."
+set_parallel 0
 
 # success -> disable trap
 rm -r "$TMPDIR"
