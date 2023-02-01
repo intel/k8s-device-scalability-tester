@@ -112,10 +112,10 @@ spec:
       #    "-u", "medium",
       #    "-w", "960",
       #    "-h", "540",
-      #    "-n", "480"
+      #    "-n", "4800"
 
       # how long pod termination (e.g. on scale-down) can take before
       # it's forced (= request failure), should be larger than backend
       # request timeout "-limit" value (as long as that's reasonable)
       # to avoid failed requests on scale down
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 15
