@@ -246,6 +246,7 @@ WAIT_SECS=$((WAIT_COUNT*REQ_SECS))
 
 while [ $COUNT -le "$LIMIT" ]; do
 	echo $SEPARATOR
+	HISTOGRAM=false
 
 	echo "Scaling deployments up to $COUNT..."
 	scale_backends_up "$COUNT"
@@ -316,18 +317,23 @@ while [ $COUNT -le "$LIMIT" ]; do
 	if [ "$(echo "$CHANGE / $SCALE" | bc)" -lt 1 ]; then
 		echo $SEPARATOR
 		echo "FAIL: change $CHANGE < $SCALE"
+		FAIL=$((FAIL+1))
+
 		echo $SEPARATOR
+		# show node/device spread
 		echo "$CURL \"$URL_NODES\""
 		$CURL "$URL_NODES"
-		FAIL=$((FAIL+1))
+		HISTOGRAM=true
 	fi
 done
 
-# show node/device spread
-echo $SEPARATOR
-echo "$CURL \"$URL_NODES\""
-$CURL "$URL_NODES"
-echo $SEPARATOR
+if [ $HISTOGRAM != "true" ]; then
+	echo $SEPARATOR
+	# show node/device spread
+	echo "$CURL \"$URL_NODES\""
+	$CURL "$URL_NODES"
+	echo $SEPARATOR
+fi
 
 # disable load & extra log generation
 set_parallel 0
