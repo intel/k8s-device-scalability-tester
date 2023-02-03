@@ -357,13 +357,13 @@ Running the validation
 ----------------------
 
 Validate scalability framework to scale, up to 16 replicas, with at
-least 1.8x request throughput increase on each backend replica count
-doubling, when using the (builtin) "sleep" backend / queue:
+least 1.9x request throughput increase on each backend replica count
+doubling, when using the (builtin) "sleep" backend / queue (where
+each request takes 2s):
 ```
-$ ./validate-scaling.sh scalability-tester-backend-sleep monitoring 2 scalability-tester-client-sleep validation 16 1.8
+$ ./validate-scaling.sh scalability-tester-backend-sleep monitoring 2 scalability-tester-client-sleep validation 16 1.9
 ...
-Throughput: 3.492229 -> 6.841997 = 1.95 increase on reqs-per-sec
-(pods: 16)
+Throughput: 3.492229 -> 6.841997 = 1.95 increase on reqs-per-sec (pods: 16)
 ...
 *** PASS ***
 ```
@@ -372,23 +372,23 @@ being configured to take 2s for each request.  For more accuracy, a
 significantly larger runtime value than what the backend actually
 uses, should be specified.
 
-(To reduced testing time, script runs each test round only 4x longer
-than the specified request time, which does not provide very accurate
-results.)
+(To reduced testing time, script runs each test round only 20x longer
+than the specified request run time time, which means approximately
+5% error.)
 
-Validate media backend scalability to have at least 1.4x throughput
-increase for each backend replica count doubling, for workload running
-for 30s, in a cluster where deployment can be scaled to 8 replicas
+Validate media backend scalability to have at least 1.8x throughput
+increase for each backend replica count doubling, for a workload running
+for <15s, in a cluster where its deployment can be scaled to 8 replicas
 with the specified GPU resource usage (e.g. workload taking 50% of the
 GPU, and cluster having 2 matching nodes with 2 GPUs each):
 ```
-$ ./validate-scaling.sh scalability-tester-backend-media monitoring 30 scalability-tester-client-media validation 8 1.4
+$ ./validate-scaling.sh scalability-tester-backend-media monitoring 15 scalability-tester-client-media validation 8 1.8
 ```
 
-(It's better to start with short workloads and low scalability
-expectations until specified workload node selector correctness has
-been verified and backend spec resource requests have been optimized
-for the HW on the matching nodes.)
+(Until specified workload node selector correctness has been verified
+and backend spec resource requests have been optimized for the HW on
+the matching nodes, it's better to start with very short workload
+runs, and lower scalability expectations than above.)
 
 
 Using multiple queues in parallel
