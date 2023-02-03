@@ -7,6 +7,12 @@ set -e
 SEPARATOR="------------------------------------------------"
 #TESTHOST="127.0.0.1"
 TESTHOST="localhost"
+# deployment scale wait
+SCALE_SECS=120
+# REQ_SECS multiplier
+WAIT_COUNT=20
+# parallel requests
+PARALLEL=-1
 TYPE="plain"
 #TYPE="json"
 
@@ -22,8 +28,9 @@ usage ()
 	echo "be scaled up by doubling its replica count from 1 to LIMIT, with each step improving"
 	echo "request throughput (at least) by SCALE (according to requesting SERVICE)."
 	echo
-	echo "DEPLOYMENT scale-up is validated to happen within SECS, and request throughput change"
-	echo "within 4*SECS. SECS *should* be equal or longer than max backend workload run time."
+	echo "DEPLOYMENT scale-up is waited for ${SCALE_SECS}s (before script fails), and request throughput"
+	echo "change data is collected for $WAIT_COUNT*SECS (-> ~$((100/WAIT_COUNT))% error margin). SECS should be equal"
+	echo "or longer than the max run time for a single backend workload request."
 	echo
 	prefix=scalability-tester
 	echo "If '$TESTHOST' is given as k8s namespace, default $prefix localhost addresses"
@@ -43,7 +50,8 @@ fi
 
 DEPLOYMENT=$1
 DEP_SPACE=$2
-DEP_SECS=$3
+# max workload run request completion time
+REQ_SECS=$3
 SERVICE=$4
 SVC_SPACE=$5
 LIMIT=$6
@@ -116,9 +124,17 @@ get_typed ()
 
 set_parallel ()
 {
-	echo "Setting number of parallel client requests to $1"
-	echo "$CURL \"$URL_PARALLEL=$1\" > $TMPFILE"
-	$CURL "$URL_PARALLEL=$1" > "$TMPFILE"
+	if [ "$PARALLEL" -eq "$1" ]; then
+		return
+	fi
+	PARALLEL=$1
+	if [ "$PARALLEL" -eq 0 ]; then
+		echo "Disabling client requests..."
+	else
+		echo "Setting number of parallel client requests to $PARALLEL..."
+	fi
+	echo "$CURL \"$URL_PARALLEL=$PARALLEL\" > $TMPFILE"
+	$CURL "$URL_PARALLEL=$PARALLEL" > "$TMPFILE"
 	ret=$(get_typed "$TMPFILE")
 	if [ "$ret" != "$1" ]; then
 		echo "ERROR: $ret != $1"
@@ -178,6 +194,8 @@ wait_pod_state ()
 
 scale_backends_up ()
 {
+	set_parallel 0
+
 	COUNT=$1
 	cmd="kubectl scale -n $DEP_SPACE deployment/$DEPLOYMENT --replicas=$COUNT"
 	if [ "$DEP_SPACE" != "$TESTHOST" ]; then
@@ -186,12 +204,21 @@ scale_backends_up ()
 		$cmd
 	fi
 
-	SECS=$((COUNT*DEP_SECS))
-	wait_pod_state "$SECS" "$COUNT" "${DEPLOYMENT}-" "$DEP_SPACE" "Running"
+	# remaining scale wait: wait_pod_state() -> SECS
+	wait_pod_state "$SCALE_SECS" "$COUNT" "${DEPLOYMENT}-" "$DEP_SPACE" "Running"
+
+	# remaining request wait = REQ_SECS - (SCALE_SECS - SECS)
+	SECS=$((REQ_SECS-SCALE_SECS+SECS))
+	if [ $SECS -gt 0 ]; then
+		echo "Waiting extra ${SECS}s to make sure previous requests have finished..."
+		sleep $SECS
+	fi
 }
 
 scale_backends_down ()
 {
+	set_parallel 0
+
 	COUNT=$1
 	cmd="kubectl scale -n $DEP_SPACE deployment/$DEPLOYMENT --replicas=$COUNT"
 	if [ "$DEP_SPACE" != "$TESTHOST" ]; then
@@ -199,12 +226,9 @@ scale_backends_down ()
 		echo "$cmd"
 		$cmd
 	fi
-	wait_pod_state "$DEP_SECS" "$COUNT" "${DEPLOYMENT}-" "$DEP_SPACE" "Running"
+	wait_pod_state "$SCALE_SECS" "$COUNT" "${DEPLOYMENT}-" "$DEP_SPACE" "Running"
 }
 
-
-echo "Disabling client requests while testing deployment..."
-set_parallel 0
 
 echo "Verifying that backend deployment can be scaled to maximum..."
 scale_backends_up "$LIMIT"
@@ -217,7 +241,9 @@ scale_backends_down 0
 OLD="0"
 FAIL=0
 COUNT=1
-REQ_SECS=$((4*DEP_SECS))
+
+WAIT_SECS=$((WAIT_COUNT*REQ_SECS))
+
 while [ $COUNT -le "$LIMIT" ]; do
 	echo $SEPARATOR
 
@@ -238,8 +264,8 @@ while [ $COUNT -le "$LIMIT" ]; do
 	CUR_COUNT=$COUNT
 	COUNT=$((2*COUNT))
 
-	echo "Waiting ${REQ_SECS}s for throughput metrics collection..."
-	sleep "$REQ_SECS"
+	echo "Waiting ${WAIT_SECS}s for throughput metrics collection..."
+	sleep "$WAIT_SECS"
 
 	echo "Fetching throughput..."
 	echo "$CURL \"$URL_THROUGHPUT\" > $TMPFILE"
@@ -304,7 +330,6 @@ $CURL "$URL_NODES"
 echo $SEPARATOR
 
 # disable load & extra log generation
-echo "Disabling client requests..."
 set_parallel 0
 
 # success -> disable trap
