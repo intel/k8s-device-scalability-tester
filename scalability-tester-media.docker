@@ -25,7 +25,7 @@ COPY cmd/ ./cmd
 RUN make mod  &&  make static
 
 
-# where to get latest BKC tools and libs
+# get latest Intel driver packages and tools
 FROM ubuntu:22.04
 
 # don't ask anything
