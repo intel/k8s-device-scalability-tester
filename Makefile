@@ -108,11 +108,15 @@ hadolint:
 		hadolint $$c; \
 	done
 
+# packages: yamllint
+yamllint:
+	yamllint -d relaxed --no-warnings .
+
 # packages: shellcheck
 shellcheck:
 	find . -name '*.sh' | xargs shellcheck
 
-check: gocheck golint hadolint shellcheck
+check: gocheck golint shellcheck yamllint hadolint
 
 
 mod:
@@ -127,5 +131,5 @@ clean:
 goclean: clean
 	go clean --modcache
 
-.PHONY: static msan race gocheck golint hadolint shellcheck \
-	check mod clean goclean
+.PHONY: static msan race gocheck golint hadolint yamllint \
+	shellcheck check mod clean goclean
