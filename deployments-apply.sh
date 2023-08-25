@@ -93,14 +93,17 @@ wait_pod_state ()
 		if [ "$LINES" -eq 0 ]; then
 			# => wait done
 			return
-		break
-		echo "$LINES pods still in other state"
-	fi
+		fi
+		echo "$LINES pods still in other state(s)"
 	done
 
+	# show state of pods on timeout
+	echo $SEPARATOR
+	kubectl -n "$SPACE" get pods | grep -F -e NAME -e "^$PREFIX"
+	echo $SEPARATOR
 	echo "ERROR: deployment wait timed out"
 
-	# on timeout, show log for first erroring pod
+	# and log for first erroring pod, if errors
 	CRASHER=$(kubectl -n "$SPACE" get pods | awk "/^${PREFIX}.* (Crash|Error)/"'{print $1; exit}')
 	if [ "$CRASHER" != "" ]; then
 		echo $SEPARATOR

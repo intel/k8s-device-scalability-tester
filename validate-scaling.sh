@@ -175,8 +175,7 @@ wait_pod_state ()
 		if [ "$LINES" -eq 0 ]; then
 			# => wait done
 			return
-		break
-	fi
+		fi
 	done
 
 	echo "ERROR: deployment wait timed out"
@@ -246,7 +245,7 @@ WAIT_SECS=$((WAIT_COUNT*REQ_SECS))
 
 while [ $COUNT -le "$LIMIT" ]; do
 	echo $SEPARATOR
-	HISTOGRAM=false
+	HISTOGRAM="false"
 
 	echo "Scaling deployments up to $COUNT..."
 	scale_backends_up "$COUNT"
@@ -323,11 +322,11 @@ while [ $COUNT -le "$LIMIT" ]; do
 		# show node/device spread
 		echo "$CURL \"$URL_NODES\""
 		$CURL "$URL_NODES"
-		HISTOGRAM=true
+		HISTOGRAM="true"
 	fi
 done
 
-if [ $HISTOGRAM != "true" ]; then
+if [ "$HISTOGRAM" != "true" ]; then
 	echo $SEPARATOR
 	# show node/device spread
 	echo "$CURL \"$URL_NODES\""
