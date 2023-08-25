@@ -99,7 +99,7 @@ var (
 	stats   statsT // request statistics
 	verbose bool   // verbose messaging
 	// set request parallelization: 0 <= x <= reqmax.
-	parallel chan int = make(chan int, 1)
+	parallel = make(chan int, 1)
 )
 
 // map2slice converts given string->uint64 mapping to a nameCounT list for sorting.
@@ -256,12 +256,12 @@ func printNodeStats(w io.Writer, output outputType) {
 	}
 }
 
-func nodeStatsOutput(w http.ResponseWriter, r *http.Request) bool {
+func nodeStatsOutput(w http.ResponseWriter, _ *http.Request) bool {
 	printNodeStats(w, htmlOutput)
 	return true
 }
 
-func podStatsOutput(w http.ResponseWriter, r *http.Request) bool {
+func podStatsOutput(w http.ResponseWriter, _ *http.Request) bool {
 	printHeader(w, "Per-node backend / worker pod statistics")
 
 	stats.mutex.Lock()
